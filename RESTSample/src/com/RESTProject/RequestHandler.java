@@ -96,8 +96,10 @@ public class RequestHandler
 	 
 	 private HttpResponse<JsonNode> AceRequest(String data) throws UnirestException{
 		String url = "http://api.auroras.live/v1/?type=ace";
-		url += "&data=";
-		url += data;
+		if(data != null){
+			url += "&data=";
+			url += data;
+		}
 		HttpResponse<JsonNode> response = Unirest.get(url).asJson();
 		obj = response.getBody().getObject();
 		String att = "Powered by Auroras.live";
