@@ -29,13 +29,18 @@ public class RequestHandler<T>
 	 @Produces({ "application/json","image/jpeg"})
 	 public Response requestHandler(@Context UriInfo info) throws JSONException, UnirestException 
 	 {
+		//"type" is required for everything
 		String type = info.getQueryParameters().getFirst("type");
+		
+		//Used by some stuff
 		String data = info.getQueryParameters().getFirst("data");
 		String latitude = info.getQueryParameters().getFirst("lat");
 		String longitude = info.getQueryParameters().getFirst("long");
 		
 		//Used by weather "module" and "all" module
 		String forecast = info.getQueryParameters().getFirst("forecast");
+		
+		//Used by some stuff
 		String action = info.getQueryParameters().getFirst("action");
 		String start = info.getQueryParameters().getFirst("start");
 		String end = info.getQueryParameters().getFirst("end");
@@ -49,9 +54,11 @@ public class RequestHandler<T>
 		String threeday = info.getQueryParameters().getFirst("threeday");
 		String twentysevenday = info.getQueryParameters().getFirst("twentysevenday");
 		String weather = info.getQueryParameters().getFirst("weather");
+		
+		//Compact form of the above seven
 		String[] allModule = {ace, archive, forecast, images, probability, threeday, twentysevenday, weather, latitude, longitude};
 		
-		//Used by "map" module (Google maps API)
+		//Used by "map" module (Google maps API). I don't really know how it works lol
 		String id = info.getQueryParameters().getFirst("id");
 		
 		obj = new JSONObject(); 
