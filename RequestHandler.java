@@ -20,7 +20,7 @@ import com.mashape.unirest.http.exceptions.UnirestException;
 import com.mashape.unirest.request.HttpRequest;
 
 @Path("/")
-public class RequestHandler
+public class RequestHandler<T>
 {
 	 JSONObject obj; 
 	 JSONArray arr;
@@ -33,17 +33,33 @@ public class RequestHandler
 		String data = info.getQueryParameters().getFirst("data");
 		String latitude = info.getQueryParameters().getFirst("lat");
 		String longitude = info.getQueryParameters().getFirst("long");
+		
+		//Used by weather "module" and "all" module
 		String forecast = info.getQueryParameters().getFirst("forecast");
 		String action = info.getQueryParameters().getFirst("action");
 		String start = info.getQueryParameters().getFirst("start");
 		String end = info.getQueryParameters().getFirst("end");
 		String image = info.getQueryParameters().getFirst("image");
 		
+		//The following seven are used by the "all" module
+		String ace = info.getQueryParameters().getFirst("ace");
+		String archive = info.getQueryParameters().getFirst("archive");
+		String images = info.getQueryParameters().getFirst("images");
+		String probability = info.getQueryParameters().getFirst("probability");
+		String threeday = info.getQueryParameters().getFirst("threeday");
+		String twentysevenday = info.getQueryParameters().getFirst("twentysevenday");
+		String weather = info.getQueryParameters().getFirst("weather");
+		String[] allModule = {ace, archive, forecast, images, probability, threeday, twentysevenday, weather, latitude, longitude};
+		
+		//Used by "map" module (Google maps API)
+		String id = info.getQueryParameters().getFirst("id");
+		
 		obj = new JSONObject(); 
 		arr = new JSONArray();
 		
 		if(type.equals("all")){
-			return Response.status(200).entity(AllRequest().getBody().toString()).build();
+			//working
+			return Response.status(200).entity(AllRequest(allModule).getBody().toString()).build();
 		}
 		
 		else if(type.equals("ace")){
@@ -62,11 +78,16 @@ public class RequestHandler
 		}
 		
 		else if(type.equals("map")){
-			return Response.status(200).entity(MapRequest().getBody().toString()).build();
+			//working (very glitchy)
+			return Response.status(200).entity(MapRequest(id).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
 		}
 		
 		else if(type.equals("images")){
-			return Response.status(200).entity(ImagesRequest().getBody().toString()).build();
+			//working
+			if(action != null)
+				return Response.status(200).entity(ImagesRequestJson(action).getBody().toString()).build();
+			if(image != null)
+				return Response.status(200).entity(ImageRequestBinary(image).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
 		}
 		
 		else if(type.equals("weather")){
@@ -83,11 +104,57 @@ public class RequestHandler
 			String response = "Invalid URL";
 			return Response.status(404).entity(response).build();
 		}
+		//Should not reach here
+		return null;
 	 }
 	 
-	 private HttpResponse<JsonNode> AllRequest(/*String[] parameters*/){
-		//TODO: Implement this
-		return null;
+	 private HttpResponse<JsonNode> AllRequest(String[] parameters) throws UnirestException{
+		//{ace, archive, forecast, images, probability, threeday, twentysevenday, weather, latitude, longitude}
+		String url = "http://api.auroras.live/v1/?type=all";
+		if(parameters[0] != null){
+			url += "&ace=";
+			url += parameters[0];
+		}
+		if(parameters[1] != null){
+			url += "&archive=";
+			url += parameters[1];
+		}
+		if(parameters[2] != null){
+			url += "&forecast=";
+			url += parameters[2];
+		}
+		if(parameters[3] != null){
+			url += "&images=";
+			url += parameters[3];
+		}
+		if(parameters[4] != null){
+			url += "&probability=";
+			url += parameters[4];
+		}
+		if(parameters[5] != null){
+			url += "&threeday=";
+			url += parameters[5];
+		}
+		if(parameters[6] != null){
+			url += "&twentysevenday=";
+			url += parameters[7];
+		}
+		if(parameters[7] != null){
+			url += "&weather=";
+			url += parameters[7];
+		}
+		
+		url += "&lat=";
+		url += parameters[8];
+			
+		url += "&long=";
+		url += parameters[9];
+		
+		HttpResponse<JsonNode> response = Unirest.get(url).asJson();
+		obj = response.getBody().getObject();
+		String att = "Powered by Auroras.live";
+		obj.put("Attribution", att);
+		return response;
 	 }
 	 
 	 private HttpResponse<JsonNode> ArchiveRequest(String action, String start, String end) throws UnirestException{
@@ -126,14 +193,57 @@ public class RequestHandler
 		return response;
 	 }
 	 
-	 private HttpResponse<JsonNode> MapRequest(/*String[] parameters*/){
-		//TODO: Implement this
-		return null;
+	 private HttpResponse<InputStream> MapRequest(String id) throws UnirestException{
+		HttpResponse<JsonNode> temp = Unirest.get("http://api.auroras.live/v1/?type=locations").asJson();
+		JSONArray jsonArray = temp.getBody().getArray();
+
+		String latitude = null;
+		String longitude = null;
+		
+		for(int i = 0; i < jsonArray.length(); i++){
+			if(id.equals(jsonArray.getJSONObject(i).getString("id"))){
+				latitude = jsonArray.getJSONObject(i).getString("lat");
+				longitude = jsonArray.getJSONObject(i).getString("long");
+			}
+		}
+		String url = "https://maps.googleapis.com/maps/api/staticmap?";
+		url += "center=";
+		url += latitude + "," + longitude;
+		
+		System.out.println(latitude + "," + longitude);
+		url += "&zoom=10";
+		url += "&size=600x300";
+		
+		url += "&markers=color:red%7Clabel:S%7C";
+		url += latitude + "," + longitude;
+				
+		
+		HttpRequest request = Unirest.get(url);
+		request.header("Accept", "image/jpeg");
+		HttpResponse<InputStream> response = request.asBinary();
+		
+		return response;
 	 }
 	 
-	 private HttpResponse<JsonNode> ImagesRequest(/*String[] parameters*/){
-		//TODO: Implement this
-		return null;
+	 private HttpResponse<JsonNode> ImagesRequestJson(String action) throws UnirestException{
+		String url = "http://api.auroras.live/v1/?type=images";
+		url += "&action=";
+		url += action;
+		HttpResponse<JsonNode> response = Unirest.get(url).asJson();
+		obj = response.getBody().getObject();
+		String att = "Powered by Auroras.live";
+		obj.put("Attribution", att);
+		return response;
+	 }
+	 
+	 private HttpResponse<InputStream> ImageRequestBinary(String image) throws UnirestException{
+		 String url = "http://api.auroras.live/v1/?type=images";		
+		 url += "&image=";
+		 url += image;
+		 HttpRequest request = Unirest.get(url);
+		 request.header("Accept", "image/jpeg");
+		 HttpResponse<InputStream> response = request.asBinary();
+		 return response;
 	 }
 	 
 	 
