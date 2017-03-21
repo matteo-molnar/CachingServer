@@ -1,4 +1,4 @@
-package com.RESTProject;
+package com.RESTProject;		//change this depending on which package you put this in
 import java.io.InputStream;
 
 import javax.ws.rs.GET;
@@ -20,10 +20,11 @@ import com.mashape.unirest.http.exceptions.UnirestException;
 import com.mashape.unirest.request.HttpRequest;
 
 @Path("/")
-public class RequestHandler<T>
+public class RequestHandler
 {
 	 JSONObject obj;
 	 JSONArray arr;
+	 ErrorChecker er = new ErrorChecker();
 
 	 @Path("")
 	 @GET
@@ -92,7 +93,12 @@ public class RequestHandler<T>
 		// Handles "Map" requests to be forwarded to the auroras.live server
 		else if(type.equals("map")) {
 			//Working (@TODO very glitchy)
-			return Response.status(200).entity(MapRequest(id).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
+			String[] params = er.checkMapErrors(id);
+			
+			if(params == null)
+				return er.errorResponse();
+		
+			return Response.status(200).entity(MapRequest(params).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
 		}
 
 		// Handles "Images" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/images
@@ -116,16 +122,8 @@ public class RequestHandler<T>
 			//Working
 			return Response.status(200).entity(WeatherRequest(latitude, longitude, forecast).getBody().toString()).build();
 		}
-
-		// Handles invalid requests (@TODO Better error handling here)
-		else {
-			String response = "Invalid URL";
-			return Response.status(404).entity(response).build();
-		}
-
-		//Should not reach here
-		System.out.println("ERROR:  No statements were executed with the given request.");
-		return null;
+		
+		return er.errorResponse();
 	 }
 
 	 private HttpResponse<JsonNode> AllRequest(String[] parameters) throws UnirestException {
@@ -227,31 +225,17 @@ public class RequestHandler<T>
 		return response;
 	 }
 
-	 private HttpResponse<InputStream> MapRequest(String id) throws UnirestException {
-		HttpResponse<JsonNode> temp = Unirest.get("http://api.auroras.live/v1/?type=locations").asJson();
-		JSONArray jsonArray = temp.getBody().getArray();
-
-		String latitude = null;
-		String longitude = null;
-
-		for(int i = 0; i < jsonArray.length(); i++) {
-			if(id.equals(jsonArray.getJSONObject(i).getString("id"))){
-				latitude = jsonArray.getJSONObject(i).getString("lat");
-				longitude = jsonArray.getJSONObject(i).getString("long");
-			}
-		}
-
+	 private HttpResponse<InputStream> MapRequest(String[] params) throws UnirestException {
+		//params {latitude, longitude}
 		String url = "https://maps.googleapis.com/maps/api/staticmap?";
 		url += "center=";
-		url += latitude + "," + longitude;
+		url += params[0] + "," + params[1];
 
-		System.out.println(latitude + "," + longitude);
 		url += "&zoom=10";
 		url += "&size=600x300";
 
 		url += "&markers=color:red%7Clabel:S%7C";
-		url += latitude + "," + longitude;
-
+		url += params[0] + "," + params[1];
 
 		HttpRequest request = Unirest.get(url);
 		request.header("Accept", "image/jpeg");
