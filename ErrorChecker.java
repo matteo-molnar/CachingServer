@@ -3,7 +3,9 @@ package com.RESTProject;
 import javax.ws.rs.core.Response;
 
 import org.json.JSONArray;
+import org.json.JSONObject;
 
+import com.mashape.unirest.http.Headers;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
@@ -29,6 +31,15 @@ public class ErrorChecker {
 			return null;
 		String[] a = {latitude, longitude};
 		return a;
+	}
+	
+	public boolean checkImageErrors(Headers hd) throws UnirestException{
+		String contentType = hd.getFirst("Content-Type");
+		System.out.println(contentType);
+		if(contentType.equals("application/json"))
+			return true;
+		
+		return false;
 	}
 	
 	public Response errorResponse(){

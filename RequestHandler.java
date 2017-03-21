@@ -62,7 +62,7 @@ public class RequestHandler
 
 		//Used by "map" module (Google maps API). I don't really know how it works lol
 		String id = info.getQueryParameters().getFirst("id");
-
+	
 		obj = new JSONObject();
 		arr = new JSONArray();
 
@@ -104,11 +104,17 @@ public class RequestHandler
 		// Handles "Images" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/images
 		else if(type.equals("images")) {
 			//Working
-			if(action != null)
-				return Response.status(200).entity(ImagesRequestJson(action).getBody().toString()).build();
+			if(action != null){
+				HttpResponse<JsonNode> req = ImagesRequestJson(action);
+				return Response.status(200).entity(req.getBody().toString()).build();
+			}
 
-			if(image != null)
-				return Response.status(200).entity(ImageRequestBinary(image).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
+			if(image != null){
+				HttpResponse<InputStream> req = ImageRequestBinary(image);
+				if(req != null)
+					return Response.status(200).entity(req.getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
+			}
+			return er.errorResponse();
 		}
 
 		// Handles "Locations" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/locations
@@ -250,11 +256,11 @@ public class RequestHandler
 		url += action;
 
 		HttpResponse<JsonNode> response = Unirest.get(url).asJson();
+	
 		obj = response.getBody().getObject();
 
 		String att = "Powered by Auroras.live";
 		obj.put("Attribution", att);
-
 		return response;
 	 }
 
@@ -266,7 +272,10 @@ public class RequestHandler
 		 HttpRequest request = Unirest.get(url);
 		 request.header("Accept", "image/jpeg");
 		 HttpResponse<InputStream> response = request.asBinary();
-
+		 
+		 if(er.checkImageErrors(response.getHeaders()) == true)
+			 return null;
+		 
 		 return response;
 	 }
 
