@@ -33,6 +33,17 @@ public class ErrorChecker {
 		return a;
 	}
 	
+	public String encodeSpaces(String raw){
+		String temp = raw.replaceAll(" ", "%20");
+		return temp;
+	}
+	
+	public int checkArchiveErrors(JSONObject obj){
+		if(!obj.has("statusCode"))
+			return 0;
+		return obj.getInt("statusCode");
+	}
+	
 	public boolean checkImageErrors(Headers hd) throws UnirestException{
 		String contentType = hd.getFirst("Content-Type");
 		System.out.println(contentType);
@@ -42,8 +53,12 @@ public class ErrorChecker {
 		return false;
 	}
 	
-	public Response errorResponse(){
+	public Response errorResponse(String module, String code){
+		JSONObject obj = new JSONObject();
 		String response = "Invalid URL";
-		return Response.status(404).entity(response).build();
+		obj.put("Module", module);
+		obj.put("Error code", code);
+		obj.put("Error", response);
+		return Response.status(Integer.parseInt(code)).entity(obj.toString()).build();
 	}
 }

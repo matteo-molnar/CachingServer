@@ -81,6 +81,11 @@ public class RequestHandler
 		// Handles "Archive" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/archive  ** will be a main focus for caching
 		else if(type.equals("archive")) {
 			//Working
+			HttpResponse<JsonNode> response = ArchiveRequest(action, start, end);
+			JSONObject obj = response.getBody().getObject();
+			if(er.checkArchiveErrors(obj) != 0)
+				return er.errorResponse("Archive", "400");
+			
 			return Response.status(200).entity(ArchiveRequest(action, start, end).getBody().toString()).build();
 		}
 
@@ -96,7 +101,7 @@ public class RequestHandler
 			String[] params = er.checkMapErrors(id);
 			
 			if(params == null)
-				return er.errorResponse();
+				return er.errorResponse("Map", "404");
 		
 			return Response.status(200).entity(MapRequest(params).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
 		}
@@ -114,7 +119,7 @@ public class RequestHandler
 				if(req != null)
 					return Response.status(200).entity(req.getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
 			}
-			return er.errorResponse();
+			return er.errorResponse("Image", "404");
 		}
 
 		// Handles "Locations" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/locations
@@ -129,7 +134,7 @@ public class RequestHandler
 			return Response.status(200).entity(WeatherRequest(latitude, longitude, forecast).getBody().toString()).build();
 		}
 		
-		return er.errorResponse();
+		return er.errorResponse("Unknown module","404");
 	 }
 
 	 private HttpResponse<JsonNode> AllRequest(String[] parameters) throws UnirestException {
@@ -192,18 +197,18 @@ public class RequestHandler
 	 }
 
 	 private HttpResponse<JsonNode> ArchiveRequest(String action, String start, String end) throws UnirestException {
-		String url = "http://api.auroras.live/v1/?type=archive";
+		String url = "https://api.auroras.live/v1/?type=archive";
 		url += "&action=";
 		url += action;
 
 		if (action.equals("search")) {
 			url += "&start=";
-			url += start;
+			url += er.encodeSpaces(start);
 
 			url += "&end=";
-			url += end;
+			url += er.encodeSpaces(end);
 		}
-
+		
 		HttpResponse<JsonNode> response = Unirest.get(url).asJson();
 		obj = response.getBody().getObject();
 
