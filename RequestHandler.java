@@ -1,4 +1,5 @@
 package com.RESTProject;		//change this depending on which package you put this in
+import java.io.IOException;
 import java.io.InputStream;
 
 import javax.ws.rs.GET;
@@ -25,11 +26,12 @@ public class RequestHandler
 	 JSONObject obj;
 	 JSONArray arr;
 	 ErrorChecker er = new ErrorChecker();
+	 CacheController cacher = new CacheController();
 
 	 @Path("")
 	 @GET
 	 @Produces({ "application/json","image/jpeg"})
-	 public Response requestHandler(@Context UriInfo info) throws JSONException, UnirestException
+	 public Response requestHandler(@Context UriInfo info) throws JSONException, UnirestException, IOException
 	 {
 		//"type" is required for everything
 		String type = info.getQueryParameters().getFirst("type");
@@ -62,6 +64,10 @@ public class RequestHandler
 
 		//Used by "map" module (Google maps API). I don't really know how it works lol
 		String id = info.getQueryParameters().getFirst("id");
+		
+		String caching = info.getQueryParameters().getFirst("no-caching");
+		
+		boolean noCaching = cacher.checkNoCaching(caching);
 	
 		obj = new JSONObject();
 		arr = new JSONArray();
@@ -69,69 +75,86 @@ public class RequestHandler
 		// Handles "All" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/all
 		if(type.equals("all")) {
 			//Working
-			return Response.status(200).entity(AllRequest(allModule).getBody().toString()).build();
+			if(noCaching)
+				return Response.status(200).entity(AllRequest(allModule).getBody().toString()).build();
+			
+			if(cacher.checkCache(allModule))
+				return cacher.retrieveFromCache(allModule);
+			
+			Response rsp = Response.status(200).entity(AllRequest(allModule).getBody().toString()).build();
+			cacher.storeInCache(rsp);
+			return rsp;
+			
 		}
 
 		// Handles "ACE" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/ace
 		else if(type.equals("ace")) {
 			//Working
-			return Response.status(200).entity(AceRequest(data).getBody().toString()).build();
+			if(noCaching)
+				return Response.status(200).entity(AceRequest(data).getBody().toString()).build();
 		}
 
 		// Handles "Archive" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/archive  ** will be a main focus for caching
 		else if(type.equals("archive")) {
-			//Working
-			HttpResponse<JsonNode> response = ArchiveRequest(action, start, end);
-			JSONObject obj = response.getBody().getObject();
-			if(er.checkArchiveErrors(obj) != 0)
-				return er.errorResponse("Archive", "400");
-			
-			return Response.status(200).entity(ArchiveRequest(action, start, end).getBody().toString()).build();
+			if(noCaching){
+				HttpResponse<JsonNode> response = ArchiveRequest(action, start, end);
+				JSONObject obj = response.getBody().getObject();
+				if(er.checkArchiveErrors(obj) != 0)
+					return er.errorResponse("Archive", "400");
+				
+				return Response.status(200).entity(ArchiveRequest(action, start, end).getBody().toString()).build();
+			}
 		}
 
 		// Handles "Embed" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/embed
 		else if(type.equals("embed")) {
 			//Working
-			return Response.status(200).entity(EmbedRequest(image, latitude, longitude).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
+			if(noCaching)
+				return Response.status(200).entity(EmbedRequest(image, latitude, longitude).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
 		}
 
 		// Handles "Map" requests to be forwarded to the auroras.live server
 		else if(type.equals("map")) {
 			//Working (@TODO very glitchy)
-			String[] params = er.checkMapErrors(id);
+			if(noCaching){
+				String[] params = er.checkMapErrors(id);
+				
+				if(params == null)
+					return er.errorResponse("Map", "404");
 			
-			if(params == null)
-				return er.errorResponse("Map", "404");
-		
-			return Response.status(200).entity(MapRequest(params).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
+				return Response.status(200).entity(MapRequest(params).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
+			}
 		}
 
 		// Handles "Images" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/images
 		else if(type.equals("images")) {
 			//Working
-			if(action != null){
-				HttpResponse<JsonNode> req = ImagesRequestJson(action);
-				return Response.status(200).entity(req.getBody().toString()).build();
-			}
-
-			if(image != null){
-				HttpResponse<InputStream> req = ImageRequestBinary(image);
-				if(req != null)
-					return Response.status(200).entity(req.getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
-			}
-			return er.errorResponse("Image", "404");
+			if(noCaching){
+				if(action != null){
+					HttpResponse<JsonNode> req = ImagesRequestJson(action);
+					return Response.status(200).entity(req.getBody().toString()).build();
+				}
+	
+				if(image != null){
+					HttpResponse<InputStream> req = ImageRequestBinary(image);
+					if(req != null)
+						return Response.status(200).entity(req.getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
+				}
+				return er.errorResponse("Image", "404");
+			}	
 		}
 
 		// Handles "Locations" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/locations
 		else if(type.equals("locations")) {
 			//Working
-			return Response.status(200).entity(LocationRequest().getBody().toString()).build();
+			if(noCaching)
+				return Response.status(200).entity(LocationRequest().getBody().toString()).build();
 		}
 
 		// Handles "Weather" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/weather
 		else if(type.equals("weather")) {
-			//Working
-			return Response.status(200).entity(WeatherRequest(latitude, longitude, forecast).getBody().toString()).build();
+			if(noCaching)
+				return Response.status(200).entity(WeatherRequest(latitude, longitude, forecast).getBody().toString()).build();
 		}
 		
 		return er.errorResponse("Unknown module","404");
