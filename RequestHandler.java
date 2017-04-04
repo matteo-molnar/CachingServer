@@ -31,7 +31,7 @@ public class RequestHandler
 	 @Path("")
 	 @GET
 	 @Produces({ "application/json","image/jpeg"})
-	 public Response requestHandler(@Context UriInfo info) throws JSONException, UnirestException, IOException
+	 public Response requestHandler(@Context UriInfo info) throws JSONException, UnirestException, IOException, ClassNotFoundException
 	 {
 		//"type" is required for everything
 		String type = info.getQueryParameters().getFirst("type");
@@ -77,21 +77,15 @@ public class RequestHandler
 			//Working
 			if(noCaching)
 				return Response.status(200).entity(AllRequest(allModule).getBody().toString()).build();
-			
-			if(cacher.checkCache(allModule))
-				return cacher.retrieveFromCache(allModule);
-			
-			Response rsp = Response.status(200).entity(AllRequest(allModule).getBody().toString()).build();
-			cacher.storeInCache(rsp);
-			return rsp;
-			
 		}
 
 		// Handles "ACE" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/ace
 		else if(type.equals("ace")) {
 			//Working
-			if(noCaching)
-				return Response.status(200).entity(AceRequest(data).getBody().toString()).build();
+			String tester[] = {type, data};
+			return cacher.retrieveFromCache(tester);
+			//if(noCaching)
+			//	return Response.status(200).entity(AceRequest(data).getBody().toString()).build();
 		}
 
 		// Handles "Archive" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/archive  ** will be a main focus for caching
