@@ -82,13 +82,16 @@ public class RequestHandler
 		// Handles "ACE" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/ace
 		else if(type.equals("ace")) {
 			//Working
-			
-			/**THIS IS TEST CODE! ONLY USE FOR TESTING
-			String tester[] = {type, data};
-			return cacher.retrieveFromCache(tester);
-			*/
 			if(noCaching)
 				return Response.status(200).entity(AceRequest(data).getBody().toString()).build();
+			
+			String params[] = {type, data};
+			if(!cacher.checkCache(params)){
+				Response rsp = Response.status(200).entity(AceRequest(data).getBody().toString()).build();
+				cacher.storeInCache(rsp, params);
+				return rsp; 
+			}
+			return cacher.retrieveFromCache(params);
 		}
 
 		// Handles "Archive" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/archive  ** will be a main focus for caching
