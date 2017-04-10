@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 
 public class TimerControl {
 	File f = new File("CachingPeriod.txt");
+	private long cachingPeriod = 5;
 	
 	public TimerControl() throws IOException{
 		if(!f.exists()){
@@ -18,9 +19,14 @@ public class TimerControl {
 		}
 	}
 	
-	public boolean checkCachePeriodValid(String savedRequest) throws IOException{
+	public boolean checkCachePeriodValid(String savedRequest, boolean isImage) throws IOException{
 		BufferedReader br = new BufferedReader(new FileReader(f));
 		String line = null;
+		
+		if(isImage){
+			savedRequest += ".jpeg";
+		}
+		
 		while((line=br.readLine())!= null){
 			if(line.equals(savedRequest)){
 				String time = br.readLine();
@@ -28,7 +34,6 @@ public class TimerControl {
 				LocalDateTime now = LocalDateTime.now();
 				
 				if(now.isBefore(saved)){
-					System.out.println("Is valid");
 					br.close();
 					return true;
 				}
@@ -36,13 +41,12 @@ public class TimerControl {
 		}
 		
 		br.close();
-		System.out.println("Is not valid");
 		return false;
 	}
 	
 	public void updateCachingPeriod(String savedRequest) throws IOException{
 		LocalDateTime validUntil = LocalDateTime.now();
-		validUntil = validUntil.plusMinutes(1);
+		validUntil = validUntil.plusMinutes(cachingPeriod);
 		FileWriter fw = new FileWriter(f.getAbsoluteFile(), true);
 		BufferedWriter bw = new BufferedWriter(fw);
 		

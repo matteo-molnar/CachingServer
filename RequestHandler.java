@@ -7,6 +7,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.UriInfo;
 
 import org.apache.http.HttpHeaders;
@@ -75,8 +76,17 @@ public class RequestHandler
 		// Handles "All" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/all
 		if(type.equals("all")) {
 			//Working
-			if(noCaching)
+			if(noCaching){
 				return Response.status(200).entity(AllRequest(allModule).getBody().toString()).build();
+			}
+			
+			String[] params = {type, ace, archive, forecast, images, probability, threeday, twentysevenday, weather, latitude, longitude};
+			if(!cacher.checkCache(params, false)){
+				Response rsp = Response.status(200).entity(AllRequest(allModule).getBody().toString()).build();
+				cacher.storeInCache(rsp, allModule);
+				return rsp; 
+			}
+			return cacher.retrieveFromCache(params, false);
 		}
 
 		// Handles "ACE" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/ace
@@ -86,12 +96,12 @@ public class RequestHandler
 				return Response.status(200).entity(AceRequest(data).getBody().toString()).build();
 			
 			String params[] = {type, data};
-			if(!cacher.checkCache(params)){
+			if(!cacher.checkCache(params, false)){
 				Response rsp = Response.status(200).entity(AceRequest(data).getBody().toString()).build();
 				cacher.storeInCache(rsp, params);
 				return rsp; 
 			}
-			return cacher.retrieveFromCache(params);
+			return cacher.retrieveFromCache(params, false);
 		}
 
 		// Handles "Archive" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/archive  ** will be a main focus for caching
@@ -104,6 +114,19 @@ public class RequestHandler
 				
 				return Response.status(200).entity(ArchiveRequest(action, start, end).getBody().toString()).build();
 			}
+			
+			String params[] = {type, action, start, end};
+			if(!cacher.checkCache(params, false)){
+				HttpResponse<JsonNode> response = ArchiveRequest(action, start, end);
+				JSONObject obj = response.getBody().getObject();
+				if(er.checkArchiveErrors(obj) != 0)
+					return er.errorResponse("Archive", "400");
+				
+				Response rsp = Response.status(200).entity(ArchiveRequest(action, start, end).getBody().toString()).build();
+				cacher.storeInCache(rsp, params);
+				return rsp; 
+			}
+			return cacher.retrieveFromCache(params, false);
 		}
 
 		// Handles "Embed" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/embed
@@ -111,6 +134,14 @@ public class RequestHandler
 			//Working
 			if(noCaching)
 				return Response.status(200).entity(EmbedRequest(image, latitude, longitude).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
+			
+			String[] params = {type, image, latitude, longitude};
+			if(!cacher.checkCache(params, true)){
+				Response rsp = Response.status(200).entity(EmbedRequest(image, latitude, longitude).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
+				cacher.storeInCache(rsp, params);
+				return cacher.retrieveFromCache(params, true);
+			}
+			return cacher.retrieveFromCache(params, true);
 		}
 
 		// Handles "Map" requests to be forwarded to the auroras.live server
@@ -124,6 +155,19 @@ public class RequestHandler
 			
 				return Response.status(200).entity(MapRequest(params).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
 			}
+			
+			String[] params = {type, id};
+			if(!cacher.checkCache(params, true)){
+				String[] params2 = er.checkMapErrors(id);
+				
+				if(params2 == null)
+					return er.errorResponse("Map", "404");
+				
+				Response rsp = Response.status(200).entity(MapRequest(params).getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
+				cacher.storeInCache(rsp, params);
+				return cacher.retrieveFromCache(params, true); 
+			}
+			return cacher.retrieveFromCache(params, true);
 		}
 
 		// Handles "Images" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/images
@@ -142,6 +186,37 @@ public class RequestHandler
 				}
 				return er.errorResponse("Image", "404");
 			}	
+			
+			boolean isImage;
+			if(action != null)
+				isImage = false;
+			else
+				isImage = true;
+			
+			String params[] = {type, action, image};
+			if(!cacher.checkCache(params, isImage)){
+				if(action != null){
+					HttpResponse<JsonNode> req = ImagesRequestJson(action);
+					Response rsp = Response.status(200).entity(req.getBody().toString()).build();
+					cacher.storeInCache(rsp, params);
+					return rsp;
+				}
+	
+				if(image != null){
+					HttpResponse<InputStream> req = ImageRequestBinary(image);
+					if(req != null){
+						Response rsp = Response.status(200).entity(req.getBody()).header(HttpHeaders.CONTENT_TYPE, "image/jpeg").build();
+						cacher.storeInCache(rsp, params);
+						return cacher.retrieveFromCache(params, true);
+					}
+				}
+				Response rsp =  er.errorResponse("Image", "404"); 
+				cacher.storeInCache(rsp, params);
+				return rsp;
+			}
+			if(action != null)
+				return cacher.retrieveFromCache(params, false);
+			return cacher.retrieveFromCache(params, true);
 		}
 
 		// Handles "Locations" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/locations
@@ -149,12 +224,29 @@ public class RequestHandler
 			//Working
 			if(noCaching)
 				return Response.status(200).entity(LocationRequest().getBody().toString()).build();
+			
+			String params[] = {type};
+			if(!cacher.checkCache(params, false)){
+				Response rsp = Response.status(200).entity(LocationRequest().getBody().toString()).build();
+				cacher.storeInCache(rsp, params);
+				return rsp; 
+			}
+			return cacher.retrieveFromCache(params,false);
 		}
 
 		// Handles "Weather" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/weather
 		else if(type.equals("weather")) {
 			if(noCaching)
 				return Response.status(200).entity(WeatherRequest(latitude, longitude, forecast).getBody().toString()).build();
+			
+			String[] params = {type, forecast, latitude, longitude};
+			if(!cacher.checkCache(params, false)){
+				Response rsp = Response.status(200).entity(WeatherRequest(latitude, longitude, forecast).getBody().toString()).build();
+				cacher.storeInCache(rsp, params);
+				return rsp; 
+			}
+			return cacher.retrieveFromCache(params,false);
+			
 		}
 		
 		return er.errorResponse("Unknown module","404");
