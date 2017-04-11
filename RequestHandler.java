@@ -92,12 +92,15 @@ public class RequestHandler
 		// Handles "ACE" requests to be forwarded to the auroras.live server - http://auroraslive.io/#/api/v1/ace
 		else if(type.equals("ace")) {
 			//Working
-			if(noCaching)
-				return Response.status(200).entity(AceRequest(data).getBody().toString()).build();
+			if(er.checkACEErrors(data, latitude, longitude))
+				return er.errorResponse("ACE", "500");
 			
-			String params[] = {type, data};
+			if(noCaching)
+				return Response.status(200).entity(AceRequest(data, latitude, longitude).getBody().toString()).build();
+			
+			String params[] = {type, data, latitude, longitude};
 			if(!cacher.checkCache(params, false)){
-				Response rsp = Response.status(200).entity(AceRequest(data).getBody().toString()).build();
+				Response rsp = Response.status(200).entity(AceRequest(data, latitude, longitude).getBody().toString()).build();
 				cacher.storeInCache(rsp, params);
 				return rsp; 
 			}
@@ -122,7 +125,7 @@ public class RequestHandler
 				if(er.checkArchiveErrors(obj) != 0)
 					return er.errorResponse("Archive", "400");
 				
-				Response rsp = Response.status(200).entity(ArchiveRequest(action, start, end).getBody().toString()).build();
+				Response rsp = Response.status(200).entity(ArchiveRequest(action, start, end).getBody().toString()).build();	
 				cacher.storeInCache(rsp, params);
 				return rsp; 
 			}
@@ -399,7 +402,6 @@ public class RequestHandler
 		 return response;
 	 }
 
-
 	 private HttpResponse<JsonNode> WeatherRequest(String latitude, String longitude, String forecast) throws UnirestException {
 		String url = "http://api.auroras.live/v1/?type=weather";
 		url += "&lat=";
@@ -422,13 +424,24 @@ public class RequestHandler
 		return response;
 	 }
 
-	 private HttpResponse<JsonNode> AceRequest(String data) throws UnirestException {
+	 private HttpResponse<JsonNode> AceRequest(String data, String latitude, String longitude) throws UnirestException {
 		String url = "http://api.auroras.live/v1/?type=ace";
 		if(data != null){
 			url += "&data=";
 			url += data;
 		}
-
+		
+		if(latitude != null){
+			url +="&lat=";
+			url += latitude;
+		}
+	
+		if(latitude != null){
+			url +="&long=";
+			url += longitude;
+		}
+		
+		
 		HttpResponse<JsonNode> response = Unirest.get(url).asJson();
 		obj = response.getBody().getObject();
 

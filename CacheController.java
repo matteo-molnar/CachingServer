@@ -67,12 +67,18 @@ public class CacheController {
 		return rsp;
 	}
 	
-	public void storeInCache(Response rsp, String[] params) throws IOException, ClassNotFoundException{
-		//store a response in local cache
+	public String replaceInvalidCharacters(String[] params){
 		String fileName = "";
 		for(int i = 0; i < params.length; i++){
 			fileName += params[i];
 		}
+		String temp = fileName.replaceAll(":", "_");
+		return temp;
+	}
+	
+	public void storeInCache(Response rsp, String[] params) throws IOException, ClassNotFoundException{
+		//store a response in local cache
+		String fileName = replaceInvalidCharacters(params);
 		
 		FileOutputStream fos = new FileOutputStream(fileName);
 		ObjectOutputStream oos = new ObjectOutputStream(fos);

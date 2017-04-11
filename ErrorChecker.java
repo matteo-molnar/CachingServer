@@ -44,6 +44,16 @@ public class ErrorChecker {
 		return obj.getInt("statusCode");
 	}
 	
+	public boolean checkACEErrors(String data, String latitude, String longitude){
+		if(!data.equals("probability")){
+			if(latitude != null)
+				return true;
+			if(longitude != null)
+				return true;
+		}
+		return false;
+	}
+	
 	public boolean checkImageErrors(Headers hd) throws UnirestException{
 		String contentType = hd.getFirst("Content-Type");
 		System.out.println(contentType);
